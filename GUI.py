@@ -118,14 +118,18 @@ class ImageSegmentationApp:
             y_slice = st.sidebar.slider("Slice en el eje Y", 0, shape[1] - 1, shape[1] // 2)
             z_slice = st.sidebar.slider("Slice en el eje Z", 0, shape[2] - 1, shape[2] // 2)
 
-            normalized_image_data = (self.image_data - np.min(self.image_data)) / (np.max(self.image_data) - np.min(self.image_data))
-            normalized_data_canva = (normalized_image_data * 255).astype(np.uint8)
+            st.sidebar.divider()
+            st.sidebar.subheader("Segmented image")
+            self.algorithm = st.sidebar.selectbox("Select Algorithm", ["Selecciona una opción", "Thresholding", "Isodata Thresholding", "Region Growing", "K-Means"])
 
             # Specify canvas parameters in application
             st.sidebar.divider()
             st.sidebar.subheader("Drawing tool")
             self.stroke_width = st.sidebar.slider("Stroke width: ", 1, 25, 5)
-            self.stroke_color = st.sidebar.color_picker("Stroke color hex: ", value="#FFF")
+            self.stroke_color = st.sidebar.color_picker("Stroke color hex: ", value="#ff4b4b")
+
+            normalized_image_data = (self.image_data - np.min(self.image_data)) / (np.max(self.image_data) - np.min(self.image_data))
+            normalized_data_canva = (normalized_image_data * 255).astype(np.uint8)
 
             image_view = None
             col1, col2, col3 = st.columns(3)
@@ -148,14 +152,11 @@ class ImageSegmentationApp:
                 st.caption(f"Slices (Z: {z_slice})")
                 self.canvas_component(height=shape[1], normalized_image_data=image_view, key="c_z_slice")
 
-            st.sidebar.divider()
-            st.sidebar.subheader("Segmented image")
-            self.algorithm = st.sidebar.selectbox("Select Algorithm", ["Selecciona una opción", "Thresholding", "Isodata Thresholding", "Region Growing", "K-Means"])
-
+        
             st.divider()
 
             if self.algorithm != "Selecciona una opción":
-                st.text('Segmented image')
+                st.subheader('Segmented image')
                 self.apply_algorithm()
 
             if self.segmented_image is not None and np.any(self.segmented_image):
