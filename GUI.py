@@ -23,8 +23,8 @@ def generate_isodata_thresholding(image_data, tolerance):
     return isodata_thresholding(image_data, tolerance)
 
 @st.cache_data
-def generate_region_growing(image_data, initial_position, tolerance):
-    return region_growing(image_data, initial_position, tolerance, 150)
+def generate_region_growing(image_data, initial_position, tolerance, max_iterations):
+    return region_growing(image_data, initial_position, tolerance, max_iterations)
 
 @st.cache_data
 def generate_k_means(image_data, k, max_iterations):
@@ -66,22 +66,26 @@ class ImageSegmentationApp:
         elif self.algorithm == "Region Growing":
             col1, col2, col3 = st.columns(3)
             with col1:
-                x_slice = st.slider("Initial X", 0, self.image_data.shape[0] - 1, self.image_data.shape[0] // 2)
+                x_slice = st.number_input('Initial X', value=self.image_data.shape[0] // 2, min_value=0, max_value=self.image_data.shape[0] - 1)
             with col2:
-                y_slice = st.slider("Initial Y", 0, self.image_data.shape[1] - 1, self.image_data.shape[1] // 2)
+                y_slice = st.number_input('Initial Y', value=self.image_data.shape[1] // 2, min_value=0, max_value=self.image_data.shape[1] - 1)
             with col3:
-                z_slice = st.slider("Initial Z", 0, self.image_data.shape[2] - 1, self.image_data.shape[2] // 2)
+                z_slice = st.number_input('Initial Z', value=self.image_data.shape[2] // 2, min_value=0, max_value=self.image_data.shape[2] - 1)
 
             initial_position = (x_slice, y_slice, z_slice)
-            tolerance = st.slider("Tolerance", 10, 500, 80)
-            self.segmented_image = generate_region_growing(self.image_data, initial_position, tolerance)
+            col1, col2 = st.columns(2)
+            with col1:
+                tolerance = st.number_input('Tolerance', value=80)
+            with col2:
+                max_iterations = st.number_input('Max iterations', value=100)
+            self.segmented_image = generate_region_growing(self.image_data, initial_position, tolerance, max_iterations)
 
         elif self.algorithm == "K-Means":
             col1, col2 = st.columns(2)
             with col1:
-                k = st.slider("Number of Clusters", 1, 10, 3)
+                k = st.number_input('Number of Clusters', value=3, min_value=1, max_value=10)
             with col2:
-                max_iterations = st.slider("Max Iterations", 1, 100, 10)
+                max_iterations = st.number_input('Max Iterations', value=10, min_value=1, max_value=100)
             self.segmented_image = generate_k_means(self.image_data, k, max_iterations)
 
     def canvas_component(self, normalized_image_data, key):

@@ -12,17 +12,23 @@ def region_growing(image, initial_position, tolerance, max_iterations=150):
         segmented_image (matrys): Imagen segmentada binaria
     """
     cluster = set([initial_position])
+    visited = set([])
     cont = 0
 
     while cont < max_iterations:
         mean_cluster = np.mean([image[point] for point in cluster])
         prev_cluster = cluster.copy() 
-
+        
         for point in prev_cluster:
+            if point in visited:
+                continue
+          
             neighbors = get_neighbors(point, image.shape)
             for neighbor in neighbors:
                 if neighbor not in cluster and np.linalg.norm(image[neighbor] - mean_cluster) < tolerance:
                     cluster.add(neighbor)
+             
+            visited.add(point)
 
         if cluster == prev_cluster:
             break
