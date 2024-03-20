@@ -3,9 +3,10 @@ import nibabel as nib
 import numpy as np
 import tempfile
 import os
-import matplotlib.pyplot as plt
+from datetime import datetime
 from streamlit_drawable_canvas import st_canvas
 from PIL import Image
+from matplotlib.path import Path
 
 from algorithms.isodata_thresholding import isodata_thresholding
 from algorithms.k_means import k_means
@@ -32,12 +33,14 @@ def generate_k_means(image_data, k, max_iterations):
 
 class ImageSegmentationApp:
     def __init__(self):
+        self.nii_image = None
         self.image_data = None
         self.segmented_image = None
         self.algorithm = None
         self.canvas = None
         self.stroke_width = None
         self.stroke_color = None
+        self.drawing_data = {}
 
     def load_nii_image(self, uploaded_file):
         with tempfile.NamedTemporaryFile(delete=False, suffix='.nii') as tmp_file:
@@ -45,8 +48,8 @@ class ImageSegmentationApp:
             tmp_file.close()
             tmp_file_path = tmp_file.name
 
-        nii_image = nib.load(tmp_file_path)
-        self.image_data = nii_image.get_fdata()
+        self.nii_image = nib.load(tmp_file_path)
+        self.image_data = self.nii_image.get_fdata()
         os.unlink(tmp_file_path)
 
     def apply_algorithm(self):
@@ -81,7 +84,7 @@ class ImageSegmentationApp:
                 max_iterations = st.slider("Max Iterations", 1, 100, 10)
             self.segmented_image = generate_k_means(self.image_data, k, max_iterations)
 
-    def canvas_component(self, height, normalized_image_data, key):
+    def canvas_component(self, normalized_image_data, key):
         # Convertir los datos seleccionados en una imagen PIL
         image_pil = Image.fromarray(normalized_image_data)
 
@@ -90,7 +93,6 @@ class ImageSegmentationApp:
             fill_color="rgba(255, 255, 255, 0)",  # Sin relleno
             stroke_width=self.stroke_width,
             stroke_color=self.stroke_color,
-            # background_color="rgba(0, 0, 0, 0)",  # Fondo transparente
             update_streamlit=True,
             background_image=image_pil,
             drawing_mode="freedraw",
@@ -98,15 +100,59 @@ class ImageSegmentationApp:
             width=image_pil.width,
             height=image_pil.height,
         )
+
+        self.drawing_data[key] = canvas.json_data
         # st.image(canvas.image_data)
         # st.write("Dibuja sobre la imagen:")
         # st.write(canvas.json_data)
         return canvas
+    
+    def generate_new_nii_image(self, key_drawing_data):
+        original_nii = self.nii_image
+        original_data = self.image_data
+        drawing_data = self.drawing_data.get(key_drawing_data)
+
+        if drawing_data is None or (drawing_data is not None and len(drawing_data['objects']) == 0):
+            st.warning("No realizó trazos para guardar")
+            return
+        
+        # Crear una máscara binaria basada en el trazo
+        mask = np.zeros(original_data.shape[:2], dtype=np.uint8)
+
+        for obj in drawing_data['objects']:
+            if obj['type'] == 'path':
+                path = obj['path']
+                for i in range(len(path)):
+                    # x, y = path[i][1], path[i][2]
+                    # # Marcar el píxel en la máscara
+                    # mask[int(y), int(x)] = 1
+
+                    path = obj['path']
+                    x_coords, y_coords = zip(*[(int(point[1]), int(point[2])) for point in path])
+                    mask[y_coords, x_coords] = 1
+
+        # expanded_mask = np.expand_dims(mask, axis=2)
+        # masked_data = np.where(expanded_mask == 1, original_data, 0)
+
+        masked_data = np.where(mask[..., np.newaxis], original_data, 0)
+       
+        new_nii = nib.Nifti1Image(masked_data, original_nii.affine, original_nii.header)
+
+        folder_path = "store/"
+        current_datetime = datetime.now().strftime("%Y%m%d%H%M%S")
+        new_nii_filename = f"img_{current_datetime}.nii"
+        
+        new_nii_path = os.path.join(folder_path, new_nii_filename)
+        nib.save(new_nii, new_nii_path)
+        st.success(f"Segmentación guardada como '{new_nii_filename}'")
 
     def run(self):
         st.title("3D Medical Image Viewer")
         st.sidebar.title("Upload Image")
         uploaded_file = st.sidebar.file_uploader("Select a .nii image", type=["nii"])
+        key_c_x_slice = 'c_x_slice'
+        key_c_y_slice = 'c_y_slice'
+        key_c_z_slice = 'c_z_slice'
 
         if uploaded_file is not None:
             self.load_nii_image(uploaded_file)
@@ -127,7 +173,7 @@ class ImageSegmentationApp:
             st.sidebar.subheader("Drawing tool")
             self.stroke_width = st.sidebar.slider("Stroke width: ", 1, 25, 5)
             self.stroke_color = st.sidebar.color_picker("Stroke color hex: ", value="#ff4b4b")
-
+             
             normalized_image_data = (self.image_data - np.min(self.image_data)) / (np.max(self.image_data) - np.min(self.image_data))
             normalized_data_canva = (normalized_image_data * 255).astype(np.uint8)
 
@@ -138,19 +184,19 @@ class ImageSegmentationApp:
                 image_view = normalized_data_canva[x_slice, :, :]
                 # st.image(image_view, caption=f"Slices (X: {x_slice})")
                 st.caption(f"Slices (X: {x_slice})")
-                self.canvas_component(height=shape[1], normalized_image_data=image_view, key="c_x_slice")
+                self.canvas_component(normalized_image_data=image_view, key=key_c_x_slice)
 
             with col2:
                 image_view = normalized_data_canva[:, y_slice, :]
                 # st.image(image_view, caption=f"Slices (Y: {y_slice})")
                 st.caption(f"Slices (Y: {y_slice})")
-                self.canvas_component(height=shape[1], normalized_image_data=image_view, key="c_y_slice")
+                self.canvas_component(normalized_image_data=image_view, key=key_c_y_slice)
 
             with col3:
                 image_view = normalized_data_canva[:, :, z_slice]
                 # st.image(image_view, caption=f"Slices (Z: {z_slice})")
                 st.caption(f"Slices (Z: {z_slice})")
-                self.canvas_component(height=shape[1], normalized_image_data=image_view, key="c_z_slice")
+                self.canvas_component(normalized_image_data=image_view, key=key_c_z_slice)
 
         
             st.divider()
@@ -173,6 +219,15 @@ class ImageSegmentationApp:
                 with col3:
                     st.image(self.segmented_image[:, :, z_slice], caption=f"Slices (Z: {z_slice})")
 
+
+            if st.sidebar.button("Guardar Trazos (Slide X)"):
+                self.generate_new_nii_image(key_c_x_slice)
+
+            if st.sidebar.button("Guardar Trazos (Slide Y)"):
+                self.generate_new_nii_image(key_c_y_slice)
+
+            if st.sidebar.button("Guardar Trazos (Slide Z)"):
+                self.generate_new_nii_image(key_c_z_slice)
 
 if __name__ == "__main__":
     app = ImageSegmentationApp()
