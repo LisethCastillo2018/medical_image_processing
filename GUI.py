@@ -278,8 +278,7 @@ class ImageSegmentationApp:
                     self.apply_intensity_standardization()
 
                 if self.image_data is not None and self.standardized_image is not None:
-                    st.success("Intensity standardization applied successfully.")
-
+                    st.subheader(self.standardization_algorithm)
                     st.subheader("Standardized Image and Histogram")
 
                     # Mostrar la nueva imagen estandarizada
@@ -305,7 +304,7 @@ class ImageSegmentationApp:
                     st.pyplot(fig)
                     
                 else:
-                    st.warning("Please upload an image first.")
+                    st.warning("Please upload a reference image first.")
 
 if __name__ == "__main__":
     app = ImageSegmentationApp()
