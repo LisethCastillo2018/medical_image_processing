@@ -7,11 +7,17 @@ from datetime import datetime
 from streamlit_drawable_canvas import st_canvas
 from PIL import Image
 from matplotlib.path import Path
+import matplotlib.pyplot as plt
 
 from algorithms.isodata_thresholding import isodata_thresholding
 from algorithms.k_means import k_means
 from algorithms.region_growing import region_growing
 from algorithms.thresholding import thresholding
+
+from algorithms.intensity_standardization.histogram_matching import histogram_matching
+from algorithms.intensity_standardization.intensity_rescaling import intensity_rescaling
+from algorithms.intensity_standardization.white_stripe import white_stripe
+from algorithms.intensity_standardization.z_score import z_score_transformation
 
 
 @st.cache_data
@@ -41,6 +47,9 @@ class ImageSegmentationApp:
         self.stroke_width = None
         self.stroke_color = None
         self.drawing_data = {}
+        self.standardization_algorithm = None
+        self.standardized_image = None
+        self.reference_image = None
 
     def load_nii_image(self, uploaded_file):
         with tempfile.NamedTemporaryFile(delete=False, suffix='.nii') as tmp_file:
@@ -48,9 +57,10 @@ class ImageSegmentationApp:
             tmp_file.close()
             tmp_file_path = tmp_file.name
 
-        self.nii_image = nib.load(tmp_file_path)
-        self.image_data = self.nii_image.get_fdata()
+        nii_image = nib.load(tmp_file_path)
+        image_data = nii_image.get_fdata()
         os.unlink(tmp_file_path)
+        return nii_image, image_data
 
     def apply_algorithm(self):
         self.segmented_image = None
@@ -88,6 +98,27 @@ class ImageSegmentationApp:
                 max_iterations = st.number_input('Max Iterations', value=10, min_value=1, max_value=100)
             self.segmented_image = generate_k_means(self.image_data, k, max_iterations)
 
+    def load_reference_image(self):
+        uploaded_reference_image = st.sidebar.file_uploader("Select a reference image (.nii)", type=["nii"])
+        if uploaded_reference_image:
+            self.reference_image = self.load_nii_image(uploaded_reference_image)[1]
+
+    def apply_intensity_standardization(self):
+        self.standardized_image = None
+
+        if self.standardization_algorithm == "Histogram Matching":
+            if self.reference_image is not None:
+                self.standardized_image = histogram_matching(self.reference_image, self.image_data)
+
+        elif self.standardization_algorithm == "Intensity Rescaling":
+            self.standardized_image = intensity_rescaling(self.image_data)
+
+        elif self.standardization_algorithm == "White Stripe":
+            self.standardized_image = white_stripe(self.image_data)
+       
+        elif self.standardization_algorithm == "Z-score":
+            self.standardized_image = z_score_transformation(self.image_data)
+    
     def canvas_component(self, normalized_image_data, key):
         # Convertir los datos seleccionados en una imagen PIL
         image_pil = Image.fromarray(normalized_image_data)
@@ -159,7 +190,7 @@ class ImageSegmentationApp:
         key_c_z_slice = 'c_z_slice'
 
         if uploaded_file is not None:
-            self.load_nii_image(uploaded_file)
+            self.nii_image, self.image_data = self.load_nii_image(uploaded_file)
             shape = self.image_data.shape
 
             st.sidebar.divider()
@@ -232,6 +263,48 @@ class ImageSegmentationApp:
 
             if st.sidebar.button("Guardar Trazos (Slide Z)"):
                 self.generate_new_nii_image(key_c_z_slice)
+
+            # Intensity Standardization
+            st.sidebar.divider()
+            st.sidebar.subheader("Intensity Standardization")
+            self.standardization_algorithm = st.sidebar.selectbox("Select Standardization Algorithm", ["Selecciona una opción", "Histogram Matching", "Intensity Rescaling", "White Stripe", "Z-score"])
+
+            if self.standardization_algorithm != "Selecciona una opción":
+                
+                if self.standardization_algorithm == "Histogram Matching":
+                    self.load_reference_image()
+
+                if self.image_data is not None:
+                    self.apply_intensity_standardization()
+
+                if self.image_data is not None and self.standardized_image is not None:
+                    st.subheader(self.standardization_algorithm)
+                    st.subheader("Standardized Image and Histogram")
+
+                    # Mostrar la nueva imagen estandarizada
+                    norm_standardized_image = (self.standardized_image - np.min(self.standardized_image)) / (np.max(self.standardized_image) - np.min(self.standardized_image))
+                    norm_standardized_image = (norm_standardized_image * 255).astype(np.uint8)
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.image(norm_standardized_image[x_slice, :, :], caption=f"Slices (X: {x_slice})")
+
+                    with col2:
+                        st.image(norm_standardized_image[:, y_slice, :], caption=f"Slices (Y: {y_slice})")
+
+                    with col3:
+                        st.image(norm_standardized_image[:, :, z_slice], caption=f"Slices (Z: {z_slice})")
+
+                    # Mostrar el histograma de la imagen resultante
+                    fig, ax = plt.subplots()
+                    ax.hist(self.standardized_image[self.image_data > 10], 100)
+                    ax.set_title('Histogram of Standardized Image')
+                    ax.set_xlabel('Pixel Intensity')
+                    ax.set_ylabel('Frequency')
+                    st.pyplot(fig)
+                    
+                else:
+                    st.warning("Please upload a reference image first.")
 
 if __name__ == "__main__":
     app = ImageSegmentationApp()
