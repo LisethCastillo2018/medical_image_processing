@@ -18,6 +18,8 @@ from algorithms.intensity_standardization.histogram_matching import histogram_ma
 from algorithms.intensity_standardization.intensity_rescaling import intensity_rescaling
 from algorithms.intensity_standardization.white_stripe import white_stripe
 from algorithms.intensity_standardization.z_score import z_score_transformation
+from algorithms.denoising.mean_filter import mean_filter
+from algorithms.denoising.median_filter import median_filter
 
 
 @st.cache_data
@@ -36,6 +38,14 @@ def generate_region_growing(image_data, initial_position, tolerance, max_iterati
 def generate_k_means(image_data, k, max_iterations):
     return k_means(image_data, k, max_iterations)[1]
 
+@st.cache_data
+def generate_mean_filter(image_data, initial_position):
+    return mean_filter(image_data, initial_position)
+
+@st.cache_data
+def generate_median_filter(image_data, initial_position):
+    return median_filter(image_data, initial_position)
+
 
 class ImageSegmentationApp:
     def __init__(self):
@@ -50,6 +60,8 @@ class ImageSegmentationApp:
         self.standardization_algorithm = None
         self.standardized_image = None
         self.reference_image = None
+        self.denoising_algorithm = None
+        self.denoising_image = None
 
     def load_nii_image(self, uploaded_file):
         with tempfile.NamedTemporaryFile(delete=False, suffix='.nii') as tmp_file:
@@ -118,7 +130,27 @@ class ImageSegmentationApp:
        
         elif self.standardization_algorithm == "Z-score":
             self.standardized_image = z_score_transformation(self.image_data)
-    
+
+    def apply_denoising(self):
+        self.denoising_image = None
+
+        if self.denoising_algorithm in ["Mean Filter", "Median Filter"]:
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                x_slice = st.number_input('Initial X', value=self.image_data.shape[0] // 2, min_value=0, max_value=self.image_data.shape[0] - 1)
+            with col2:
+                y_slice = st.number_input('Initial Y', value=self.image_data.shape[1] // 2, min_value=0, max_value=self.image_data.shape[1] - 1)
+            with col3:
+                z_slice = st.number_input('Initial Z', value=self.image_data.shape[2] // 2, min_value=0, max_value=self.image_data.shape[2] - 1)
+
+            initial_position = (x_slice, y_slice, z_slice)
+
+            if self.denoising_algorithm == "Mean Filter":
+                self.denoising_image = generate_mean_filter(self.image_data, initial_position)
+            else:
+                self.denoising_image = generate_median_filter(self.image_data, initial_position)
+
     def canvas_component(self, normalized_image_data, key):
         # Convertir los datos seleccionados en una imagen PIL
         image_pil = Image.fromarray(normalized_image_data)
@@ -305,6 +337,31 @@ class ImageSegmentationApp:
                     
                 else:
                     st.warning("Please upload a reference image first.")
+
+            # Denoising
+            st.sidebar.divider()
+            st.sidebar.subheader("Denoising")
+            self.denoising_algorithm = st.sidebar.selectbox("Select Denoising Algorithm", ["Selecciona una opción", "Mean Filter", "Median Filter"])
+
+            if self.denoising_algorithm != "Selecciona una opción" and self.image_data is not None:
+                st.subheader(self.denoising_algorithm)
+                self.apply_denoising()
+
+                if self.denoising_image is not None:
+                    st.subheader("Filtered Image")
+                    # Mostrar la nueva imagen filtrada
+                    norm_denoising_image = (self.denoising_image - np.min(self.denoising_image)) / (np.max(self.denoising_image) - np.min(self.denoising_image))
+                    norm_denoising_image = (norm_denoising_image * 255).astype(np.uint8)
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.image(norm_denoising_image[x_slice, :, :], caption=f"Slices (X: {x_slice})")
+
+                    with col2:
+                        st.image(norm_denoising_image[:, y_slice, :], caption=f"Slices (Y: {y_slice})")
+
+                    with col3:
+                        st.image(norm_denoising_image[:, :, z_slice], caption=f"Slices (Z: {z_slice})")
 
 if __name__ == "__main__":
     app = ImageSegmentationApp()
