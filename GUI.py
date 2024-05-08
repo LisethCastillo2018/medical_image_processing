@@ -327,13 +327,38 @@ class ImageSegmentationApp:
                     with col3:
                         st.image(norm_standardized_image[:, :, z_slice], caption=f"Slices (Z: {z_slice})")
 
-                    # Mostrar el histograma de la imagen resultante
-                    fig, ax = plt.subplots()
-                    ax.hist(self.standardized_image[self.image_data > 10], 100)
-                    ax.set_title('Histogram of Standardized Image')
-                    ax.set_xlabel('Pixel Intensity')
-                    ax.set_ylabel('Frequency')
-                    st.pyplot(fig)
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        # Mostrar el histograma de la imagen resultante
+                        st.subheader("Standardized Image")
+                        fig, ax = plt.subplots()
+                        ax.hist(self.standardized_image[self.image_data > 10], 100)
+                        ax.set_title('Histogram of Standardized Image')
+                        ax.set_xlabel('Pixel Intensity')
+                        ax.set_ylabel('Frequency')
+                        st.pyplot(fig)
+
+                    with col2:
+                        # Mostrar el histograma de la imagen original
+                        st.subheader("Original Image")
+                        fig, ax = plt.subplots()
+                        ax.hist(self.image_data[self.image_data > 10], 100)
+                        ax.set_title('Histogram of Original Image')
+                        ax.set_xlabel('Pixel Intensity')
+                        ax.set_ylabel('Frequency')
+                        st.pyplot(fig)
+                    
+                    if self.reference_image is not None:
+                        # Mostrar el histograma de la imagen de referencia
+                        st.divider()
+                        st.subheader("Reference Image Histogram")
+                        fig, ax = plt.subplots()
+                        ax.hist(self.reference_image[self.image_data > 10], 100)
+                        ax.set_title('Histogram of Reference Image')
+                        ax.set_xlabel('Pixel Intensity')
+                        ax.set_ylabel('Frequency')
+                        st.pyplot(fig)
                     
                 else:
                     st.warning("Please upload a reference image first.")
