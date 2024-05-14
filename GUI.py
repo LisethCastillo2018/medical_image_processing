@@ -311,7 +311,7 @@ class ImageSegmentationApp:
 
                 if self.image_data is not None and self.standardized_image is not None:
                     st.subheader(self.standardization_algorithm)
-                    st.subheader("Standardized Image and Histogram")
+                    st.subheader("Standardized Image")
 
                     # Mostrar la nueva imagen estandarizada
                     norm_standardized_image = (self.standardized_image - np.min(self.standardized_image)) / (np.max(self.standardized_image) - np.min(self.standardized_image))
@@ -330,6 +330,16 @@ class ImageSegmentationApp:
                     col1, col2 = st.columns(2)
 
                     with col1:
+                        # Mostrar el histograma de la imagen original
+                        st.subheader("Original Image")
+                        fig, ax = plt.subplots()
+                        ax.hist(self.image_data[self.image_data > 10], 100)
+                        ax.set_title('Histogram of Original Image')
+                        ax.set_xlabel('Pixel Intensity')
+                        ax.set_ylabel('Frequency')
+                        st.pyplot(fig)
+
+                    with col2:
                         # Mostrar el histograma de la imagen resultante
                         st.subheader("Standardized Image")
                         fig, ax = plt.subplots()
@@ -339,16 +349,6 @@ class ImageSegmentationApp:
                         ax.set_ylabel('Frequency')
                         st.pyplot(fig)
 
-                    with col2:
-                        # Mostrar el histograma de la imagen original
-                        st.subheader("Original Image")
-                        fig, ax = plt.subplots()
-                        ax.hist(self.image_data[self.image_data > 10], 100)
-                        ax.set_title('Histogram of Original Image')
-                        ax.set_xlabel('Pixel Intensity')
-                        ax.set_ylabel('Frequency')
-                        st.pyplot(fig)
-                    
                     if self.reference_image is not None:
                         # Mostrar el histograma de la imagen de referencia
                         st.divider()
