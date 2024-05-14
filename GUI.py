@@ -242,7 +242,7 @@ class ImageSegmentationApp:
         axs[2].axis('off')
         st.pyplot(fig)
 
-    def run(self):
+    def run(self):   
         st.title("3D Medical Image Viewer")
         st.sidebar.title("Upload Image")
         uploaded_file = st.sidebar.file_uploader("Select a .nii image", type=["nii"])
