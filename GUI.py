@@ -226,9 +226,6 @@ class ImageSegmentationApp:
         nib.save(new_nii, new_nii_path)
         st.success(f"Segmentación guardada como '{new_nii_filename}'")
 
-    def toggle_show_bordered_image(self):
-        st.session_state['show_bordered_image'] = not st.session_state['show_bordered_image']
-
     def show_bordered_image(self, img_filt, x_slice, y_slice, z_slice, umbral=None):
         fig, axs = plt.subplots(1, 3, figsize=(15, 5))
 
@@ -253,10 +250,6 @@ class ImageSegmentationApp:
         key_c_y_slice = 'c_y_slice'
         key_c_z_slice = 'c_z_slice'
 
-        # Inicializar el estado de sesión para el botón si no está configurado
-        if 'show_bordered_image' not in st.session_state:
-            st.session_state['show_bordered_image'] = False
-
         if uploaded_file is not None:
             self.nii_image, self.image_data = self.load_nii_image(uploaded_file)
             shape = self.image_data.shape
@@ -267,8 +260,7 @@ class ImageSegmentationApp:
             y_slice = st.sidebar.slider("Slice en el eje Y", 0, shape[1] - 1, shape[1] // 2)
             z_slice = st.sidebar.slider("Slice en el eje Z", 0, shape[2] - 1, shape[2] // 2)
 
-            # Botón para encender/apagar la visualización de la imagen
-            st.sidebar.button('Toggle Bordered Image', on_click=self.toggle_show_bordered_image)
+            on_bordered = st.sidebar.toggle("Show Image Borders")
 
             st.sidebar.divider()
             st.sidebar.subheader("Segmented image")
@@ -307,9 +299,8 @@ class ImageSegmentationApp:
         
             st.divider()
 
-            if st.session_state['show_bordered_image']:
+            if on_bordered:
                 st.write("Visualización de bordes")
-
                 img_filt_x = generate_border_x(self.image_data, x_slice, y_slice, z_slice)
                 img_filt_y = generate_border_y(self.image_data, x_slice, y_slice, z_slice)
                 self.show_bordered_image(img_filt_x, x_slice, y_slice, z_slice)
@@ -318,8 +309,9 @@ class ImageSegmentationApp:
                 img_filt = generate_magnitud(img_filt_x, img_filt_y)
                 self.show_bordered_image(img_filt, x_slice, y_slice, z_slice)
 
-                st.write("Visualización de bordes con humbral")
-                self.show_bordered_image(img_filt, x_slice, y_slice, z_slice, 40)
+                st.write("Visualización de bordes sobre un umbral")
+                v_umbral = st.slider("Umbral", 0, 100, 40)
+                self.show_bordered_image(img_filt, x_slice, y_slice, z_slice, v_umbral)
 
             if self.algorithm != "Selecciona una opción":
                 st.subheader('Segmented image')
