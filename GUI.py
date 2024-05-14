@@ -9,10 +9,10 @@ from PIL import Image
 from matplotlib.path import Path
 import matplotlib.pyplot as plt
 
-from algorithms.isodata_thresholding import isodata_thresholding
-from algorithms.k_means import k_means
-from algorithms.region_growing import region_growing
-from algorithms.thresholding import thresholding
+from algorithms.segmentation.isodata_thresholding import isodata_thresholding
+from algorithms.segmentation.k_means import k_means
+from algorithms.segmentation.region_growing import region_growing
+from algorithms.segmentation.thresholding import thresholding
 
 from algorithms.intensity_standardization.histogram_matching import histogram_matching
 from algorithms.intensity_standardization.intensity_rescaling import intensity_rescaling
@@ -20,6 +20,7 @@ from algorithms.intensity_standardization.white_stripe import white_stripe
 from algorithms.intensity_standardization.z_score import z_score_transformation
 from algorithms.denoising.mean_filter import mean_filter
 from algorithms.denoising.median_filter import median_filter
+from algorithms.borders.borders import border_x, border_y, magnitud
 
 
 @st.cache_data
@@ -45,6 +46,18 @@ def generate_mean_filter(image_data, initial_position):
 @st.cache_data
 def generate_median_filter(image_data, initial_position):
     return median_filter(image_data, initial_position)
+
+@st.cache_data
+def generate_border_x(img, x_slice, y_slice, z_slice):
+    return border_x(img, x_slice, y_slice, z_slice)
+
+@st.cache_data
+def generate_border_y(img, x_slice, y_slice, z_slice):
+    return border_y(img, x_slice, y_slice, z_slice)
+
+@st.cache_data
+def generate_magnitud(img_filt_x, img_filt_y):
+    return magnitud(img_filt_x, img_filt_y)
 
 
 class ImageSegmentationApp:
@@ -213,6 +226,25 @@ class ImageSegmentationApp:
         nib.save(new_nii, new_nii_path)
         st.success(f"Segmentación guardada como '{new_nii_filename}'")
 
+    def toggle_show_bordered_image(self):
+        st.session_state['show_bordered_image'] = not st.session_state['show_bordered_image']
+
+    def show_bordered_image(self, img_filt, x_slice, y_slice, z_slice, umbral=None):
+        fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+
+        axs[0].imshow(img_filt[0] > umbral if umbral else img_filt[0], cmap='gray')
+        axs[0].set_title(f"Filtered Slice (X: {x_slice})")
+        axs[0].axis('off')
+
+        axs[1].imshow(img_filt[1] > umbral if umbral else img_filt[1], cmap='gray')
+        axs[1].set_title(f"Filtered Slice (Y: {y_slice})")
+        axs[1].axis('off')
+
+        axs[2].imshow(img_filt[2] > umbral if umbral else img_filt[2], cmap='gray')
+        axs[2].set_title(f"Filtered Slice (Z: {z_slice})")
+        axs[2].axis('off')
+        st.pyplot(fig)
+
     def run(self):
         st.title("3D Medical Image Viewer")
         st.sidebar.title("Upload Image")
@@ -220,6 +252,10 @@ class ImageSegmentationApp:
         key_c_x_slice = 'c_x_slice'
         key_c_y_slice = 'c_y_slice'
         key_c_z_slice = 'c_z_slice'
+
+        # Inicializar el estado de sesión para el botón si no está configurado
+        if 'show_bordered_image' not in st.session_state:
+            st.session_state['show_bordered_image'] = False
 
         if uploaded_file is not None:
             self.nii_image, self.image_data = self.load_nii_image(uploaded_file)
@@ -230,6 +266,9 @@ class ImageSegmentationApp:
             x_slice = st.sidebar.slider("Slice en el eje X", 0, shape[0] - 1, shape[0] // 2)
             y_slice = st.sidebar.slider("Slice en el eje Y", 0, shape[1] - 1, shape[1] // 2)
             z_slice = st.sidebar.slider("Slice en el eje Z", 0, shape[2] - 1, shape[2] // 2)
+
+            # Botón para encender/apagar la visualización de la imagen
+            st.sidebar.button('Toggle Bordered Image', on_click=self.toggle_show_bordered_image)
 
             st.sidebar.divider()
             st.sidebar.subheader("Segmented image")
@@ -267,6 +306,20 @@ class ImageSegmentationApp:
 
         
             st.divider()
+
+            if st.session_state['show_bordered_image']:
+                st.write("Visualización de bordes")
+
+                img_filt_x = generate_border_x(self.image_data, x_slice, y_slice, z_slice)
+                img_filt_y = generate_border_y(self.image_data, x_slice, y_slice, z_slice)
+                self.show_bordered_image(img_filt_x, x_slice, y_slice, z_slice)
+
+                st.write("Visualización de maginitud")
+                img_filt = generate_magnitud(img_filt_x, img_filt_y)
+                self.show_bordered_image(img_filt, x_slice, y_slice, z_slice)
+
+                st.write("Visualización de bordes con humbral")
+                self.show_bordered_image(img_filt, x_slice, y_slice, z_slice, 40)
 
             if self.algorithm != "Selecciona una opción":
                 st.subheader('Segmented image')

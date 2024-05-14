@@ -1,6 +1,6 @@
 import numpy as np
 
-from algorithms.region_growing import get_neighbors
+from algorithms.segmentation.region_growing import get_neighbors
 
 
 def median_filter(image, initial_position):
