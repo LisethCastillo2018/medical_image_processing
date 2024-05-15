@@ -63,7 +63,7 @@ def registration(fixed_image_path, moving_image_path):
     registered_image = resampler.Execute(moving_image)
 
     # Guardar la imagen registrada
-    sitk.WriteImage(registered_image, 'imagen_registrada.nii')
+    sitk.WriteImage(registered_image, './store/imagen_registrada.nii')
 
     # Guardar la transformación aplicada
     # sitk.WriteTransform(final_transform, 'transformacion_final.tfm')

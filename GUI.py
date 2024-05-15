@@ -21,6 +21,7 @@ from algorithms.intensity_standardization.z_score import z_score_transformation
 from algorithms.denoising.mean_filter import mean_filter
 from algorithms.denoising.median_filter import median_filter
 from algorithms.borders.borders import border_x, border_y, magnitud
+from algorithms.registration.registration import registration
 
 
 @st.cache_data
@@ -59,6 +60,10 @@ def generate_border_y(img, x_slice, y_slice, z_slice):
 def generate_magnitud(img_filt_x, img_filt_y):
     return magnitud(img_filt_x, img_filt_y)
 
+@st.cache_data
+def generate_registration(fixed_image_path, moving_image_path):
+    return registration(fixed_image_path, moving_image_path)
+
 
 class ImageSegmentationApp:
     def __init__(self):
@@ -75,6 +80,7 @@ class ImageSegmentationApp:
         self.reference_image = None
         self.denoising_algorithm = None
         self.denoising_image = None
+        self.registered_image = None
 
     def load_nii_image(self, uploaded_file):
         with tempfile.NamedTemporaryFile(delete=False, suffix='.nii') as tmp_file:
@@ -84,8 +90,8 @@ class ImageSegmentationApp:
 
         nii_image = nib.load(tmp_file_path)
         image_data = nii_image.get_fdata()
-        os.unlink(tmp_file_path)
-        return nii_image, image_data
+        # os.unlink(tmp_file_path)
+        return nii_image, image_data, tmp_file_path
 
     def apply_algorithm(self):
         self.segmented_image = None
@@ -251,7 +257,7 @@ class ImageSegmentationApp:
         key_c_z_slice = 'c_z_slice'
 
         if uploaded_file is not None:
-            self.nii_image, self.image_data = self.load_nii_image(uploaded_file)
+            self.nii_image, self.image_data, self.image_path = self.load_nii_image(uploaded_file)
             shape = self.image_data.shape
 
             st.sidebar.divider()
@@ -432,6 +438,48 @@ class ImageSegmentationApp:
 
                     with col3:
                         st.image(norm_denoising_image[:, :, z_slice], caption=f"Slices (Z: {z_slice})")
+
+            # Registrar una nueva imagen
+            st.sidebar.divider()
+            if st.sidebar.checkbox("Register images"):
+                
+                uploaded_registration_image = st.sidebar.file_uploader("Upload moving image (.nii)", type=["nii"])
+                if uploaded_registration_image:
+                    _, moving_image, moving_image_path = self.load_nii_image(uploaded_registration_image)
+                    generate_registration(self.image_path, moving_image_path)
+                    st.success("Image registered successfully.")
+
+                    registered_image = nib.load('./store/imagen_registrada.nii')
+                    self.registered_image = registered_image.get_fdata()
+
+                    st.text("Moving image")
+                    norm_moving_image = (moving_image - np.min(moving_image)) / (np.max(moving_image) - np.min(moving_image))
+                    norm_moving_image = (norm_moving_image * 255).astype(np.uint8)
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.image(norm_moving_image[x_slice, :, :], caption=f"Slices (X: {x_slice})")
+
+                    with col2:
+                        st.image(norm_moving_image[:, y_slice, :], caption=f"Slices (Y: {y_slice})")
+
+                    with col3:
+                        st.image(norm_moving_image[:, :, z_slice], caption=f"Slices (Z: {z_slice})")
+
+                    st.text("Registered image")
+                    norm_registered_image = (self.registered_image - np.min(self.registered_image)) / (np.max(self.registered_image) - np.min(self.registered_image))
+                    norm_registered_image = (norm_registered_image * 255).astype(np.uint8)
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.image(norm_registered_image[x_slice, :, :], caption=f"Slices (X: {x_slice})")
+
+                    with col2:
+                        st.image(norm_registered_image[:, y_slice, :], caption=f"Slices (Y: {y_slice})")
+
+                    with col3:
+                        st.image(norm_registered_image[:, :, z_slice], caption=f"Slices (Z: {z_slice})")
+
 
 if __name__ == "__main__":
     app = ImageSegmentationApp()
