@@ -462,9 +462,10 @@ class ImageSegmentationApp:
                 self.handle_registration(uploaded_registration_image)
 
             if st.session_state['exec_registered_image'] and self.moving_image is not None:
-
                 registered_image = nib.load('./store/imagen_registrada.nii')
                 self.registered_image = registered_image.get_fdata()
+
+                st.subheader("Image registration")
 
                 st.text("Moving image")
                 norm_moving_image = (self.moving_image - np.min(self.moving_image)) / (np.max(self.moving_image) - np.min(self.moving_image))
