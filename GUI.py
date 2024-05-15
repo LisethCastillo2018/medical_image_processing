@@ -81,6 +81,7 @@ class ImageSegmentationApp:
         self.denoising_algorithm = None
         self.denoising_image = None
         self.registered_image = None
+        self.moving_image = None
 
     def load_nii_image(self, uploaded_file):
         with tempfile.NamedTemporaryFile(delete=False, suffix='.nii') as tmp_file:
@@ -248,7 +249,20 @@ class ImageSegmentationApp:
         axs[2].axis('off')
         st.pyplot(fig)
 
+    def handle_registration(self, uploaded_registration_image):
+        if uploaded_registration_image:
+            _, self.moving_image, moving_image_path = self.load_nii_image(uploaded_registration_image)
+            if not st.session_state.get('exec_registered_image', False):
+                generate_registration(self.image_path, moving_image_path)
+                st.session_state['exec_registered_image'] = True
+        else:
+            st.session_state['exec_registered_image'] = False
+
     def run(self):   
+
+        if 'exec_registered_image' not in st.session_state:
+            st.session_state['exec_registered_image'] = False
+
         st.title("3D Medical Image Viewer")
         st.sidebar.title("Upload Image")
         uploaded_file = st.sidebar.file_uploader("Select a .nii image", type=["nii"])
@@ -441,44 +455,44 @@ class ImageSegmentationApp:
 
             # Registrar una nueva imagen
             st.sidebar.divider()
-            if st.sidebar.checkbox("Register images"):
-                
+            if not st.sidebar.checkbox("Register images"):
+                st.session_state['exec_registered_image'] = False
+            else:
                 uploaded_registration_image = st.sidebar.file_uploader("Upload moving image (.nii)", type=["nii"])
-                if uploaded_registration_image:
-                    _, moving_image, moving_image_path = self.load_nii_image(uploaded_registration_image)
-                    generate_registration(self.image_path, moving_image_path)
-                    st.success("Image registered successfully.")
+                self.handle_registration(uploaded_registration_image)
 
-                    registered_image = nib.load('./store/imagen_registrada.nii')
-                    self.registered_image = registered_image.get_fdata()
+            if st.session_state['exec_registered_image'] and self.moving_image is not None:
 
-                    st.text("Moving image")
-                    norm_moving_image = (moving_image - np.min(moving_image)) / (np.max(moving_image) - np.min(moving_image))
-                    norm_moving_image = (norm_moving_image * 255).astype(np.uint8)
-                    
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.image(norm_moving_image[x_slice, :, :], caption=f"Slices (X: {x_slice})")
+                registered_image = nib.load('./store/imagen_registrada.nii')
+                self.registered_image = registered_image.get_fdata()
 
-                    with col2:
-                        st.image(norm_moving_image[:, y_slice, :], caption=f"Slices (Y: {y_slice})")
+                st.text("Moving image")
+                norm_moving_image = (self.moving_image - np.min(self.moving_image)) / (np.max(self.moving_image) - np.min(self.moving_image))
+                norm_moving_image = (norm_moving_image * 255).astype(np.uint8)
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.image(norm_moving_image[x_slice, :, :], caption=f"Slices (X: {x_slice})")
 
-                    with col3:
-                        st.image(norm_moving_image[:, :, z_slice], caption=f"Slices (Z: {z_slice})")
+                with col2:
+                    st.image(norm_moving_image[:, y_slice, :], caption=f"Slices (Y: {y_slice})")
 
-                    st.text("Registered image")
-                    norm_registered_image = (self.registered_image - np.min(self.registered_image)) / (np.max(self.registered_image) - np.min(self.registered_image))
-                    norm_registered_image = (norm_registered_image * 255).astype(np.uint8)
-                    
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.image(norm_registered_image[x_slice, :, :], caption=f"Slices (X: {x_slice})")
+                with col3:
+                    st.image(norm_moving_image[:, :, z_slice], caption=f"Slices (Z: {z_slice})")
 
-                    with col2:
-                        st.image(norm_registered_image[:, y_slice, :], caption=f"Slices (Y: {y_slice})")
+                st.text("Registered image")
+                norm_registered_image = (self.registered_image - np.min(self.registered_image)) / (np.max(self.registered_image) - np.min(self.registered_image))
+                norm_registered_image = (norm_registered_image * 255).astype(np.uint8)
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.image(norm_registered_image[x_slice, :, :], caption=f"Slices (X: {x_slice})")
 
-                    with col3:
-                        st.image(norm_registered_image[:, :, z_slice], caption=f"Slices (Z: {z_slice})")
+                with col2:
+                    st.image(norm_registered_image[:, y_slice, :], caption=f"Slices (Y: {y_slice})")
+
+                with col3:
+                    st.image(norm_registered_image[:, :, z_slice], caption=f"Slices (Z: {z_slice})")
 
 
 if __name__ == "__main__":
