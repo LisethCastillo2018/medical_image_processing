@@ -6,7 +6,6 @@ import os
 from datetime import datetime
 from streamlit_drawable_canvas import st_canvas
 from PIL import Image
-from matplotlib.path import Path
 import matplotlib.pyplot as plt
 
 from algorithms.segmentation.isodata_thresholding import isodata_thresholding
@@ -22,6 +21,7 @@ from algorithms.denoising.mean_filter import mean_filter
 from algorithms.denoising.median_filter import median_filter
 from algorithms.borders.borders import border_x, border_y, magnitud
 from algorithms.registration.registration import registration
+from utils.utils import draw_line
 
 
 @st.cache_data
@@ -66,6 +66,10 @@ def generate_registration(fixed_image_path, moving_image_path):
 
 
 class ImageSegmentationApp:
+
+    RED_COLOR = "#ff4b4b"
+    GREEN_COLOR = "#00ff00"
+
     def __init__(self):
         self.nii_image = None
         self.image_data = None
@@ -91,10 +95,9 @@ class ImageSegmentationApp:
 
         nii_image = nib.load(tmp_file_path)
         image_data = nii_image.get_fdata()
-        # os.unlink(tmp_file_path)
         return nii_image, image_data, tmp_file_path
 
-    def apply_algorithm(self):
+    def apply_segmentation_algorithm(self):
         self.segmented_image = None
 
         if self.algorithm == "Thresholding":
@@ -189,49 +192,43 @@ class ImageSegmentationApp:
         )
 
         self.drawing_data[key] = canvas.json_data
-        # st.image(canvas.image_data)
-        # st.write("Dibuja sobre la imagen:")
-        # st.write(canvas.json_data)
         return canvas
-    
-    def generate_new_nii_image(self, key_drawing_data):
-        original_nii = self.nii_image
+
+    def generate_drawing_image(self, key_drawing_data):
+        
         original_data = self.image_data
         drawing_data = self.drawing_data.get(key_drawing_data)
 
         if drawing_data is None or (drawing_data is not None and len(drawing_data['objects']) == 0):
             st.warning("No realizó trazos para guardar")
             return
-        
+
         # Crear una máscara binaria basada en el trazo
         mask = np.zeros(original_data.shape[:2], dtype=np.uint8)
 
         for obj in drawing_data['objects']:
             if obj['type'] == 'path':
                 path = obj['path']
-                for i in range(len(path)):
-                    # x, y = path[i][1], path[i][2]
-                    # # Marcar el píxel en la máscara
-                    # mask[int(y), int(x)] = 1
+                for i in range(len(path) - 1):
+                    x0, y0 = int(path[i][1]), int(path[i][2])
+                    x1, y1 = int(path[i + 1][1]), int(path[i + 1][2])
+                    draw_line(mask, x0, y0, x1, y1)
 
-                    path = obj['path']
-                    x_coords, y_coords = zip(*[(int(point[1]), int(point[2])) for point in path])
-                    mask[y_coords, x_coords] = 1
+        # Crear una imagen RGB en blanco y negro (0-255) para guardar el trazo
+        image_rgb = np.zeros((*original_data.shape[:2], 3), dtype=np.uint8)
+        image_rgb[mask == 1] = [255, 255, 255]
 
-        # expanded_mask = np.expand_dims(mask, axis=2)
-        # masked_data = np.where(expanded_mask == 1, original_data, 0)
+        # Convertir los datos a una imagen PIL
+        image_pil = Image.fromarray(image_rgb)
 
-        masked_data = np.where(mask[..., np.newaxis], original_data, 0)
-       
-        new_nii = nib.Nifti1Image(masked_data, original_nii.affine, original_nii.header)
-
+        # Guardar la imagen
         folder_path = "store/"
         current_datetime = datetime.now().strftime("%Y%m%d%H%M%S")
-        new_nii_filename = f"img_{current_datetime}.nii"
-        
-        new_nii_path = os.path.join(folder_path, new_nii_filename)
-        nib.save(new_nii, new_nii_path)
-        st.success(f"Segmentación guardada como '{new_nii_filename}'")
+        new_image_filename = f"drawing_{current_datetime}.png"
+
+        new_image_path = os.path.join(folder_path, new_image_filename)
+        image_pil.save(new_image_path)
+        st.success(f"Trazo guardado como '{new_image_filename}'")
 
     def show_bordered_image(self, img_filt, x_slice, y_slice, z_slice, umbral=None):
         fig, axs = plt.subplots(1, 3, figsize=(15, 5))
@@ -290,7 +287,11 @@ class ImageSegmentationApp:
             st.sidebar.divider()
             st.sidebar.subheader("Drawing tool")
             self.stroke_width = st.sidebar.slider("Stroke width: ", 1, 25, 5)
-            self.stroke_color = st.sidebar.color_picker("Stroke color hex: ", value="#ff4b4b")
+
+            # Seleccionar el color de trazo
+            colors = {"Red": self.RED_COLOR, "Green": self.GREEN_COLOR}
+            selected_color = st.sidebar.radio("Stroke color:", list(colors.keys()))
+            self.stroke_color = colors[selected_color]
              
             normalized_image_data = (self.image_data - np.min(self.image_data)) / (np.max(self.image_data) - np.min(self.image_data))
             normalized_data_canva = (normalized_image_data * 255).astype(np.uint8)
@@ -300,25 +301,23 @@ class ImageSegmentationApp:
 
             with col1:
                 image_view = normalized_data_canva[x_slice, :, :]
-                # st.image(image_view, caption=f"Slices (X: {x_slice})")
                 st.caption(f"Slices (X: {x_slice})")
                 self.canvas_component(normalized_image_data=image_view, key=key_c_x_slice)
 
             with col2:
                 image_view = normalized_data_canva[:, y_slice, :]
-                # st.image(image_view, caption=f"Slices (Y: {y_slice})")
                 st.caption(f"Slices (Y: {y_slice})")
                 self.canvas_component(normalized_image_data=image_view, key=key_c_y_slice)
 
             with col3:
                 image_view = normalized_data_canva[:, :, z_slice]
-                # st.image(image_view, caption=f"Slices (Z: {z_slice})")
                 st.caption(f"Slices (Z: {z_slice})")
                 self.canvas_component(normalized_image_data=image_view, key=key_c_z_slice)
 
         
             st.divider()
 
+            # Bordes
             if on_bordered:
                 st.write("Visualización de bordes")
                 img_filt_x = generate_border_x(self.image_data, x_slice, y_slice, z_slice)
@@ -333,9 +332,10 @@ class ImageSegmentationApp:
                 v_umbral = st.slider("Umbral", 0, 100, 40)
                 self.show_bordered_image(img_filt, x_slice, y_slice, z_slice, v_umbral)
 
+            # Segmentación
             if self.algorithm != "Selecciona una opción":
                 st.subheader('Segmented image')
-                self.apply_algorithm()
+                self.apply_segmentation_algorithm()
 
             if self.segmented_image is not None and np.any(self.segmented_image):
 
@@ -353,13 +353,13 @@ class ImageSegmentationApp:
 
 
             if st.sidebar.button("Guardar Trazos (Slide X)"):
-                self.generate_new_nii_image(key_c_x_slice)
+                self.generate_drawing_image(key_c_x_slice)
 
             if st.sidebar.button("Guardar Trazos (Slide Y)"):
-                self.generate_new_nii_image(key_c_y_slice)
+                self.generate_drawing_image(key_c_y_slice)
 
             if st.sidebar.button("Guardar Trazos (Slide Z)"):
-                self.generate_new_nii_image(key_c_z_slice)
+                self.generate_drawing_image(key_c_z_slice)
 
             # Intensity Standardization
             st.sidebar.divider()

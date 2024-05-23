@@ -65,10 +65,4 @@ def registration(fixed_image_path, moving_image_path):
     # Guardar la imagen registrada
     sitk.WriteImage(registered_image, './store/imagen_registrada.nii')
 
-    # Guardar la transformación aplicada
-    # sitk.WriteTransform(final_transform, 'transformacion_final.tfm')
-
-    print('Registro completado. Transformación final: ')
-    print(final_transform)
-
     return registered_image
