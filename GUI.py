@@ -12,6 +12,7 @@ from algorithms.segmentation.isodata_thresholding import isodata_thresholding
 from algorithms.segmentation.k_means import k_means
 from algorithms.segmentation.region_growing import region_growing
 from algorithms.segmentation.thresholding import thresholding
+from algorithms.segmentation.laplacian_coordinates import laplacian_coordinates
 
 from algorithms.intensity_standardization.histogram_matching import histogram_matching
 from algorithms.intensity_standardization.intensity_rescaling import intensity_rescaling
@@ -21,8 +22,13 @@ from algorithms.denoising.mean_filter import mean_filter
 from algorithms.denoising.median_filter import median_filter
 from algorithms.borders.borders import border_x, border_y, magnitud
 from algorithms.registration.registration import registration
-from utils.utils import draw_line
+from utils.constants import Colors
+from utils.utils import draw_line, normalize_image, resize_image
 
+
+# @st.cache_data
+def generate_laplacian_coordinates(image_data):
+    return laplacian_coordinates(image_data)
 
 @st.cache_data
 def generate_thresholding(image_data, threshold):
@@ -66,9 +72,6 @@ def generate_registration(fixed_image_path, moving_image_path):
 
 
 class ImageSegmentationApp:
-
-    RED_COLOR = "#ff4b4b"
-    GREEN_COLOR = "#00ff00"
 
     def __init__(self):
         self.nii_image = None
@@ -176,7 +179,7 @@ class ImageSegmentationApp:
 
     def canvas_component(self, normalized_image_data, key):
         # Convertir los datos seleccionados en una imagen PIL
-        image_pil = Image.fromarray(normalized_image_data)
+        image_pil = Image.fromarray(normalized_image_data).resize((500, 500))
 
         # Create a canvas component
         canvas = st_canvas(
@@ -255,6 +258,12 @@ class ImageSegmentationApp:
         else:
             st.session_state['exec_registered_image'] = False
 
+    def toggle_image_display(self, image_view, slice_type, slice_value, canvas_key, show=True):
+        show_image = st.checkbox(f"Show {slice_type} Slice (Value: {slice_value})", show)
+        if show_image:
+            st.caption(f"Slices ({slice_type}: {slice_value})")
+            self.canvas_component(normalized_image_data=image_view, key=canvas_key)
+
     def run(self):   
 
         if 'exec_registered_image' not in st.session_state:
@@ -289,31 +298,16 @@ class ImageSegmentationApp:
             self.stroke_width = st.sidebar.slider("Stroke width: ", 1, 25, 5)
 
             # Seleccionar el color de trazo
-            colors = {"Red": self.RED_COLOR, "Green": self.GREEN_COLOR}
+            colors = {"Red": Colors.RED_COLOR, "Green": Colors.GREEN_COLOR}
             selected_color = st.sidebar.radio("Stroke color:", list(colors.keys()))
             self.stroke_color = colors[selected_color]
              
             normalized_image_data = (self.image_data - np.min(self.image_data)) / (np.max(self.image_data) - np.min(self.image_data))
             normalized_data_canva = (normalized_image_data * 255).astype(np.uint8)
 
-            image_view = None
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-                image_view = normalized_data_canva[x_slice, :, :]
-                st.caption(f"Slices (X: {x_slice})")
-                self.canvas_component(normalized_image_data=image_view, key=key_c_x_slice)
-
-            with col2:
-                image_view = normalized_data_canva[:, y_slice, :]
-                st.caption(f"Slices (Y: {y_slice})")
-                self.canvas_component(normalized_image_data=image_view, key=key_c_y_slice)
-
-            with col3:
-                image_view = normalized_data_canva[:, :, z_slice]
-                st.caption(f"Slices (Z: {z_slice})")
-                self.canvas_component(normalized_image_data=image_view, key=key_c_z_slice)
-
+            self.toggle_image_display(normalized_data_canva[x_slice, :, :], 'X', x_slice, key_c_x_slice)
+            self.toggle_image_display(normalized_data_canva[:, y_slice, :], 'Y', y_slice, key_c_y_slice, show=False)
+            self.toggle_image_display(normalized_data_canva[:, :, z_slice], 'Z', z_slice, key_c_z_slice, show=False)
         
             st.divider()
 
@@ -351,6 +345,12 @@ class ImageSegmentationApp:
                 with col3:
                     st.image(self.segmented_image[:, :, z_slice], caption=f"Slices (Z: {z_slice})")
 
+            if st.sidebar.button("Laplacian Coordinates"):
+                self.segmented_image = generate_laplacian_coordinates(self.image_data)
+                norm_standardized_image = normalize_image(self.segmented_image)
+                st.image(norm_standardized_image, caption="Laplacian Coordinates", width=600)
+
+            st.sidebar.divider()
 
             if st.sidebar.button("Guardar Trazos (Slide X)"):
                 self.generate_drawing_image(key_c_x_slice)
@@ -379,8 +379,7 @@ class ImageSegmentationApp:
                     st.subheader("Standardized Image")
 
                     # Mostrar la nueva imagen estandarizada
-                    norm_standardized_image = (self.standardized_image - np.min(self.standardized_image)) / (np.max(self.standardized_image) - np.min(self.standardized_image))
-                    norm_standardized_image = (norm_standardized_image * 255).astype(np.uint8)
+                    norm_standardized_image = normalize_image(self.standardized_image)
                     
                     col1, col2, col3 = st.columns(3)
                     with col1:

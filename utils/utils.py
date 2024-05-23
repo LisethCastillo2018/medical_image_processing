@@ -1,4 +1,6 @@
-
+import numpy as np
+from skimage.transform import resize
+from utils.constants import Colors
 
 
 def get_image_center(image_shape):
@@ -50,3 +52,39 @@ def draw_line(image, x0, y0, x1, y1):
         if e2 < dx:
             err += dx
             y0 += sy
+
+
+def identify_and_store_drawing(canvas_data):
+    red_points = []
+    green_points = []
+
+    # Iterar sobre los objetos dibujados en el lienzo
+    for obj in canvas_data['objects']:
+        if obj['type'] == 'path':
+            path = obj['path']
+            color = obj['stroke']
+            # Identificar el color del trazo
+            if color == Colors.RED_COLOR:
+                # Almacenar los puntos del trazo rojo
+                for point in path:
+                    red_points.append((int(point[1]), int(point[2])))
+            elif color == Colors.GREEN_COLOR:
+                # Almacenar los puntos del trazo verde
+                for point in path:
+                    green_points.append((int(point[1]), int(point[2])))
+    return red_points, green_points
+
+
+def normalize_image(image):
+    norm_standardized_image = (image - np.min(image)) / (np.max(image) - np.min(image))
+    return (norm_standardized_image * 255).astype(np.uint8)
+
+
+def resize_image(image_data):
+    slice_index = image_data.shape[2] // 2 
+    image_2d = image_data[:, :, slice_index] 
+
+    factor_reduccion = 0.1
+    nueva_altura = int(image_2d.shape[0] * factor_reduccion) 
+    nueva_anchura = int(image_2d.shape[1] * factor_reduccion) 
+    return resize(image_2d, (nueva_altura, nueva_anchura)) 
