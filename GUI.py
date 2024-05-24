@@ -27,8 +27,8 @@ from utils.utils import draw_line, normalize_image, resize_image
 
 
 # @st.cache_data
-def generate_laplacian_coordinates(image_data, drawing_data):
-    return laplacian_coordinates(image_data, drawing_data)
+def generate_laplacian_coordinates(image_data, drawing_data, original_shape):
+    return laplacian_coordinates(image_data, drawing_data, original_shape)
 
 @st.cache_data
 def generate_thresholding(image_data, threshold):
@@ -89,6 +89,7 @@ class ImageSegmentationApp:
         self.denoising_image = None
         self.registered_image = None
         self.moving_image = None
+        self.original_shape = (600, 600)
 
     def load_nii_image(self, uploaded_file):
         with tempfile.NamedTemporaryFile(delete=False, suffix='.nii') as tmp_file:
@@ -179,7 +180,7 @@ class ImageSegmentationApp:
 
     def canvas_component(self, normalized_image_data, key):
         # Convertir los datos seleccionados en una imagen PIL
-        image_pil = Image.fromarray(normalized_image_data).resize((500, 500))
+        image_pil = Image.fromarray(normalized_image_data).resize(self.original_shape)
 
         # Create a canvas component
         canvas = st_canvas(
@@ -346,9 +347,25 @@ class ImageSegmentationApp:
                     st.image(self.segmented_image[:, :, z_slice], caption=f"Slices (Z: {z_slice})")
 
             if st.sidebar.button("Laplacian Coordinates X"):
-                self.segmented_image = generate_laplacian_coordinates(self.image_data, self.drawing_data.get(key_c_x_slice))
+                st.subheader("Laplacian Coordinates Image Segmentation X")
+                image_resize = resize_image(self.image_data[x_slice, :, :])
+                self.segmented_image = generate_laplacian_coordinates(image_resize, self.drawing_data.get(key_c_x_slice), self.original_shape)
                 norm_standardized_image = normalize_image(self.segmented_image)
-                st.image(norm_standardized_image, caption="Laplacian Coordinates", width=600)
+                st.image(norm_standardized_image, caption="Laplacian Coordinates X", width=600)
+
+            if st.sidebar.button("Laplacian Coordinates Y"):
+                st.subheader("Laplacian Coordinates Image Segmentation Y")
+                image_resize = resize_image(self.image_data[:, y_slice, :])
+                self.segmented_image = generate_laplacian_coordinates(image_resize, self.drawing_data.get(key_c_y_slice), self.original_shape)
+                norm_standardized_image = normalize_image(self.segmented_image)
+                st.image(norm_standardized_image, caption="Laplacian Coordinates Y", width=600)
+
+            if st.sidebar.button("Laplacian Coordinates Z"):
+                st.subheader("Laplacian Coordinates Image Segmentation Z")
+                image_resize = resize_image(self.image_data[:, :, z_slice])
+                self.segmented_image = generate_laplacian_coordinates(image_resize, self.drawing_data.get(key_c_z_slice), self.original_shape)
+                norm_standardized_image = normalize_image(self.segmented_image)
+                st.image(norm_standardized_image, caption="Laplacian Coordinates Z", width=600)
 
             st.sidebar.divider()
 

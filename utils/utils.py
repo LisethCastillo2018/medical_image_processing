@@ -77,13 +77,11 @@ def identify_and_store_drawing(canvas_data):
 
 def normalize_image(image):
     norm_standardized_image = (image - np.min(image)) / (np.max(image) - np.min(image))
-    return (norm_standardized_image * 255).astype(np.uint8)
+    # norm_standardized_image = (norm_standardized_image * 255).astype(np.uint8)
+    return norm_standardized_image
 
 
-def resize_image(image_data):
-    slice_index = image_data.shape[2] // 2 
-    image_2d = image_data[:, :, slice_index] 
-
+def resize_image(image_2d):
     factor_reduccion = 0.1
     nueva_altura = int(image_2d.shape[0] * factor_reduccion) 
     nueva_anchura = int(image_2d.shape[1] * factor_reduccion) 
