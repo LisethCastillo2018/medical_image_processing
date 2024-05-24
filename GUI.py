@@ -27,8 +27,8 @@ from utils.utils import draw_line, normalize_image, resize_image
 
 
 # @st.cache_data
-def generate_laplacian_coordinates(image_data):
-    return laplacian_coordinates(image_data)
+def generate_laplacian_coordinates(image_data, drawing_data):
+    return laplacian_coordinates(image_data, drawing_data)
 
 @st.cache_data
 def generate_thresholding(image_data, threshold):
@@ -345,8 +345,8 @@ class ImageSegmentationApp:
                 with col3:
                     st.image(self.segmented_image[:, :, z_slice], caption=f"Slices (Z: {z_slice})")
 
-            if st.sidebar.button("Laplacian Coordinates"):
-                self.segmented_image = generate_laplacian_coordinates(self.image_data)
+            if st.sidebar.button("Laplacian Coordinates X"):
+                self.segmented_image = generate_laplacian_coordinates(self.image_data, self.drawing_data.get(key_c_x_slice))
                 norm_standardized_image = normalize_image(self.segmented_image)
                 st.image(norm_standardized_image, caption="Laplacian Coordinates", width=600)
 
