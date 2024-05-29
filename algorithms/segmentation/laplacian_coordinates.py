@@ -103,7 +103,7 @@ def create_b(image_shape, B, F, x_B, x_F):
     for pixel_index in range(num_rows * num_cols):
         row_index = pixel_index // num_cols
         col_index = pixel_index % num_cols
-        print("(row_index, col_index) = ", f"({row_index}, {col_index})")
+        # print("(row_index, col_index) = ", f"({row_index}, {col_index})")
         if (row_index, col_index) in B:
             b[pixel_index] = x_B
         elif (row_index, col_index) in F:
@@ -128,7 +128,7 @@ def laplacian_coordinates(image_data, canvas_data, original_shape):
     image_data: de .nii image
     canvas_data: data del canvas
     """
-    print("*** image_data: ", image_data)
+    # print("*** image_data: ", image_data)
     print("*** == shape: ", image_data.shape)
     image = image_data
 
@@ -166,10 +166,10 @@ def laplacian_coordinates(image_data, canvas_data, original_shape):
     segmented_image = segment_image(x, x_B, x_F)
     segmented_image = segmented_image.reshape(image.shape)  # Redimensionar la imagen segmentada
 
-    print('*** shape: ', image.shape)
-    print("*** image: ", image)
-    print("=== B: ", B)
-    print("=== F: ", F)
+    # print('*** shape: ', image.shape)
+    # print("*** image: ", image)
+    # print("=== B: ", B)
+    # print("=== F: ", F)
     # print("=== E: ", E)
     # print("=== sigma: ", sigma)
     # print("=== weighted_valencies_d_i: ", weighted_valencies_d_i)
@@ -179,6 +179,6 @@ def laplacian_coordinates(image_data, canvas_data, original_shape):
     # print("=== I_S: ", I_S)
     # print("=== b: ", b)
     # print("=== x: ", x)
-    # print("=== segmented_image: ", segmented_image)
+    print("=== segmented_image: ", segmented_image)
 
     return segmented_image
