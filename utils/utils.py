@@ -81,8 +81,7 @@ def normalize_image(image):
     return norm_standardized_image
 
 
-def resize_image(image_2d):
-    factor_reduccion = 0.1
+def resize_image(image_2d, factor_reduccion):
     nueva_altura = int(image_2d.shape[0] * factor_reduccion) 
     nueva_anchura = int(image_2d.shape[1] * factor_reduccion) 
     return resize(image_2d, (nueva_altura, nueva_anchura)) 

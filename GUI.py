@@ -26,7 +26,7 @@ from utils.constants import Colors
 from utils.utils import draw_line, normalize_image, resize_image
 
 
-# @st.cache_data
+@st.cache_data
 def generate_laplacian_coordinates(image_data, drawing_data, original_shape):
     return laplacian_coordinates(image_data, drawing_data, original_shape)
 
@@ -89,7 +89,7 @@ class ImageSegmentationApp:
         self.denoising_image = None
         self.registered_image = None
         self.moving_image = None
-        self.original_shape = (195, 195)
+        self.original_shape = None
 
     def load_nii_image(self, uploaded_file):
         with tempfile.NamedTemporaryFile(delete=False, suffix='.nii') as tmp_file:
@@ -281,6 +281,7 @@ class ImageSegmentationApp:
         if uploaded_file is not None:
             self.nii_image, self.image_data, self.image_path = self.load_nii_image(uploaded_file)
             shape = self.image_data.shape
+            self.original_shape = (shape[0], shape[1])
 
             st.sidebar.divider()
             st.sidebar.subheader("Image viewer")
@@ -357,40 +358,37 @@ class ImageSegmentationApp:
                 with col3:
                     st.image(self.segmented_image[:, :, z_slice], caption=f"Slices (Z: {z_slice})")
 
-            is_clicked_x = st.sidebar.checkbox("Laplacian Coordinates X")
-            is_clicked_y = st.sidebar.checkbox("Laplacian Coordinates Y")
-            is_clicked_z = st.sidebar.checkbox("Laplacian Coordinates Z")
+            
+            on_laplacian_coordinates = st.sidebar.toggle("Laplacian Coordinates")
 
-            if is_clicked_x or is_clicked_y or is_clicked_z:
+            factor_reduccion = 0.1
+
+            if on_laplacian_coordinates:
                 st.subheader("Laplacian Coordinates Image Segmentation")
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    if is_clicked_x:
-
                         if not self.validate_drawing_data(key_c_x_slice):
                             st.warning("No realizó trazos")
                         else:
-                            image_resize = resize_image(self.image_data[x_slice, :, :])
+                            image_resize = resize_image(self.image_data[x_slice, :, :], factor_reduccion)
                             self.segmented_image = generate_laplacian_coordinates(image_resize, self.drawing_data.get(key_c_x_slice), self.original_shape)
                             norm_standardized_image = normalize_image(self.segmented_image)
                             st.image(norm_standardized_image, caption="Laplacian Coordinates X", width=self.original_shape[0])
 
                 with col2:
-                    if is_clicked_y:
                         if not self.validate_drawing_data(key_c_y_slice):
                             st.warning("No realizó trazos")
                         else:
-                            image_resize = resize_image(self.image_data[:, y_slice, :])
+                            image_resize = resize_image(self.image_data[:, y_slice, :], factor_reduccion)
                             self.segmented_image = generate_laplacian_coordinates(image_resize, self.drawing_data.get(key_c_y_slice), self.original_shape)
                             norm_standardized_image = normalize_image(self.segmented_image)
                             st.image(norm_standardized_image, caption="Laplacian Coordinates Y", width=self.original_shape[0])
 
                 with col3:
-                    if is_clicked_z:
                         if not self.validate_drawing_data(key_c_z_slice):
                             st.warning("No realizó trazos")
                         else:
-                            image_resize = resize_image(self.image_data[:, :, z_slice])
+                            image_resize = resize_image(self.image_data[:, :, z_slice], factor_reduccion)
                             self.segmented_image = generate_laplacian_coordinates(image_resize, self.drawing_data.get(key_c_z_slice), self.original_shape)
                             norm_standardized_image = normalize_image(self.segmented_image)
                             st.image(norm_standardized_image, caption="Laplacian Coordinates Z", width=self.original_shape[0])
