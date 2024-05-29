@@ -1,8 +1,7 @@
 import numpy as np
-from functools import reduce
 
 
-from utils.utils import identify_and_store_drawing, resize_image
+from utils.utils import identify_and_store_drawing
 
 def get_neighbors(matrix, i, j):
     neighbors = [(-1, -1), (-1, 0), (-1, 1), 
@@ -133,8 +132,6 @@ def laplacian_coordinates(image_data, canvas_data, original_shape):
     print("*** == shape: ", image_data.shape)
     image = image_data
 
-    # image = image_data
-
     # image = np.array([[1, 2, 10, 3, 4, 10], 
     #                   [7, 4, 120, 3, 17, 10], 
     #                   [7, 120, 120, 110, 16, 10],
@@ -173,15 +170,15 @@ def laplacian_coordinates(image_data, canvas_data, original_shape):
     print("*** image: ", image)
     print("=== B: ", B)
     print("=== F: ", F)
-    print("=== E: ", E)
+    # print("=== E: ", E)
     # print("=== sigma: ", sigma)
     # print("=== weighted_valencies_d_i: ", weighted_valencies_d_i)
     # print("=== D: ", D)
     # print("=== W: ", W)
     # print("=== L: ", L)
-    print("=== I_S: ", I_S)
-    print("=== b: ", b)
-    print("=== x: ", x)
-    print("=== segmented_image: ", segmented_image)
+    # print("=== I_S: ", I_S)
+    # print("=== b: ", b)
+    # print("=== x: ", x)
+    # print("=== segmented_image: ", segmented_image)
 
     return segmented_image

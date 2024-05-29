@@ -89,7 +89,7 @@ class ImageSegmentationApp:
         self.denoising_image = None
         self.registered_image = None
         self.moving_image = None
-        self.original_shape = (600, 600)
+        self.original_shape = (195, 195)
 
     def load_nii_image(self, uploaded_file):
         with tempfile.NamedTemporaryFile(delete=False, suffix='.nii') as tmp_file:
@@ -180,7 +180,7 @@ class ImageSegmentationApp:
 
     def canvas_component(self, normalized_image_data, key):
         # Convertir los datos seleccionados en una imagen PIL
-        image_pil = Image.fromarray(normalized_image_data).resize(self.original_shape)
+        image_pil = Image.fromarray(normalized_image_data)  #.resize(self.original_shape)
 
         # Create a canvas component
         canvas = st_canvas(
@@ -198,14 +198,21 @@ class ImageSegmentationApp:
         self.drawing_data[key] = canvas.json_data
         return canvas
 
-    def generate_drawing_image(self, key_drawing_data):
-        
-        original_data = self.image_data
+    def validate_drawing_data(self, key_drawing_data):
         drawing_data = self.drawing_data.get(key_drawing_data)
 
         if drawing_data is None or (drawing_data is not None and len(drawing_data['objects']) == 0):
+            return False
+        return True
+
+    def generate_drawing_image(self, key_drawing_data):
+
+        if not self.validate_drawing_data(key_drawing_data):
             st.warning("No realizó trazos para guardar")
             return
+        
+        original_data = self.image_data
+        drawing_data = self.drawing_data.get(key_drawing_data)
 
         # Crear una máscara binaria basada en el trazo
         mask = np.zeros(original_data.shape[:2], dtype=np.uint8)
@@ -259,12 +266,6 @@ class ImageSegmentationApp:
         else:
             st.session_state['exec_registered_image'] = False
 
-    def toggle_image_display(self, image_view, slice_type, slice_value, canvas_key, show=True):
-        show_image = st.checkbox(f"Show {slice_type} Slice (Value: {slice_value})", show)
-        if show_image:
-            st.caption(f"Slices ({slice_type}: {slice_value})")
-            self.canvas_component(normalized_image_data=image_view, key=canvas_key)
-
     def run(self):   
 
         if 'exec_registered_image' not in st.session_state:
@@ -295,7 +296,7 @@ class ImageSegmentationApp:
 
             # Specify canvas parameters in application
             st.sidebar.divider()
-            st.sidebar.subheader("Drawing tool")
+            st.sidebar.subheader("Laplacian Coordinates")
             self.stroke_width = st.sidebar.slider("Stroke width: ", 1, 25, 5)
 
             # Seleccionar el color de trazo
@@ -306,9 +307,19 @@ class ImageSegmentationApp:
             normalized_image_data = (self.image_data - np.min(self.image_data)) / (np.max(self.image_data) - np.min(self.image_data))
             normalized_data_canva = (normalized_image_data * 255).astype(np.uint8)
 
-            self.toggle_image_display(normalized_data_canva[x_slice, :, :], 'X', x_slice, key_c_x_slice)
-            self.toggle_image_display(normalized_data_canva[:, y_slice, :], 'Y', y_slice, key_c_y_slice, show=False)
-            self.toggle_image_display(normalized_data_canva[:, :, z_slice], 'Z', z_slice, key_c_z_slice, show=False)
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                st.caption(f"Slices (X: {x_slice})")
+                self.canvas_component(normalized_image_data=normalized_data_canva[x_slice, :, :], key=key_c_x_slice)
+
+            with col2:
+                st.caption(f"Slices (Y: {y_slice})")
+                self.canvas_component(normalized_image_data=normalized_data_canva[:, y_slice, :], key=key_c_y_slice)
+
+            with col3:
+                st.caption(f"Slices Z: {z_slice})")
+                self.canvas_component(normalized_image_data=normalized_data_canva[:, :, z_slice], key=key_c_z_slice)
         
             st.divider()
 
@@ -346,28 +357,43 @@ class ImageSegmentationApp:
                 with col3:
                     st.image(self.segmented_image[:, :, z_slice], caption=f"Slices (Z: {z_slice})")
 
-            if st.sidebar.button("Laplacian Coordinates X"):
-                st.subheader("Laplacian Coordinates Image Segmentation X")
-                image_resize = resize_image(self.image_data[x_slice, :, :])
-                self.segmented_image = generate_laplacian_coordinates(image_resize, self.drawing_data.get(key_c_x_slice), self.original_shape)
-                norm_standardized_image = normalize_image(self.segmented_image)
-                st.image(norm_standardized_image, caption="Laplacian Coordinates X", width=600)
+            is_clicked_x = st.sidebar.checkbox("Laplacian Coordinates X")
+            is_clicked_y = st.sidebar.checkbox("Laplacian Coordinates Y")
+            is_clicked_z = st.sidebar.checkbox("Laplacian Coordinates Z")
 
-            if st.sidebar.button("Laplacian Coordinates Y"):
-                st.subheader("Laplacian Coordinates Image Segmentation Y")
-                image_resize = resize_image(self.image_data[:, y_slice, :])
-                self.segmented_image = generate_laplacian_coordinates(image_resize, self.drawing_data.get(key_c_y_slice), self.original_shape)
-                norm_standardized_image = normalize_image(self.segmented_image)
-                st.image(norm_standardized_image, caption="Laplacian Coordinates Y", width=600)
+            if is_clicked_x or is_clicked_y or is_clicked_z:
+                st.subheader("Laplacian Coordinates Image Segmentation")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    if is_clicked_x:
 
-            if st.sidebar.button("Laplacian Coordinates Z"):
-                st.subheader("Laplacian Coordinates Image Segmentation Z")
-                image_resize = resize_image(self.image_data[:, :, z_slice])
-                self.segmented_image = generate_laplacian_coordinates(image_resize, self.drawing_data.get(key_c_z_slice), self.original_shape)
-                norm_standardized_image = normalize_image(self.segmented_image)
-                st.image(norm_standardized_image, caption="Laplacian Coordinates Z", width=600)
+                        if not self.validate_drawing_data(key_c_x_slice):
+                            st.warning("No realizó trazos")
+                        else:
+                            image_resize = resize_image(self.image_data[x_slice, :, :])
+                            self.segmented_image = generate_laplacian_coordinates(image_resize, self.drawing_data.get(key_c_x_slice), self.original_shape)
+                            norm_standardized_image = normalize_image(self.segmented_image)
+                            st.image(norm_standardized_image, caption="Laplacian Coordinates X", width=self.original_shape[0])
 
-            st.sidebar.divider()
+                with col2:
+                    if is_clicked_y:
+                        if not self.validate_drawing_data(key_c_y_slice):
+                            st.warning("No realizó trazos")
+                        else:
+                            image_resize = resize_image(self.image_data[:, y_slice, :])
+                            self.segmented_image = generate_laplacian_coordinates(image_resize, self.drawing_data.get(key_c_y_slice), self.original_shape)
+                            norm_standardized_image = normalize_image(self.segmented_image)
+                            st.image(norm_standardized_image, caption="Laplacian Coordinates Y", width=self.original_shape[0])
+
+                with col3:
+                    if is_clicked_z:
+                        if not self.validate_drawing_data(key_c_z_slice):
+                            st.warning("No realizó trazos")
+                        else:
+                            image_resize = resize_image(self.image_data[:, :, z_slice])
+                            self.segmented_image = generate_laplacian_coordinates(image_resize, self.drawing_data.get(key_c_z_slice), self.original_shape)
+                            norm_standardized_image = normalize_image(self.segmented_image)
+                            st.image(norm_standardized_image, caption="Laplacian Coordinates Z", width=self.original_shape[0])
 
             if st.sidebar.button("Guardar Trazos (Slide X)"):
                 self.generate_drawing_image(key_c_x_slice)
@@ -471,6 +497,7 @@ class ImageSegmentationApp:
 
             # Registrar una nueva imagen
             st.sidebar.divider()
+            st.sidebar.subheader("Register")
             if not st.sidebar.checkbox("Register images"):
                 st.session_state['exec_registered_image'] = False
             else:
